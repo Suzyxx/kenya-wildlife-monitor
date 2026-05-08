@@ -42,7 +42,7 @@ def open_stream(stream_url: str):
         "-i", stream_url,
         "-f", "rawvideo",
         "-pix_fmt", "bgr24",
-        "-vf", "fps=1",
+        "-vf", "fps=2",
         "pipe:1"
     ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8)
 
