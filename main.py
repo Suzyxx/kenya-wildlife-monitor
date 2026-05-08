@@ -8,14 +8,14 @@ from pathlib import Path
 from detector import WildlifeDetector
 from events import EventManager
 from storage import DataStore
-from utils import estimate_lighting, estimate_activity_level, get_stream_url
+from utils import estimate_lighting, estimate_activity_level, get_stream_url, open_stream, read_frame
 
 DEFAULT_STREAM = "https://www.youtube.com/watch?v=ydYDqZQpim8"
 FRAME_INTERVAL = 10
 CONFIDENCE_THRESHOLD = 0.35
 
 
-def _shannon(counts: dict) -> float:
+def _shannon(counts):
     total = sum(counts.values())
     if total == 0:
         return 0.0
@@ -29,81 +29,76 @@ def _shannon(counts: dict) -> float:
 
 def _print_summary(ts, detections, counts, shannon, lighting, activity, evts):
     n = len(detections)
-    species_str = ", ".join(f"{k}x{v}" for k, v in counts.items()) or "none"
-    evt_str     = ", ".join(f"[{e.severity.upper()}] {e.name}" for e in evts) or "-"
+    species_str = ", ".join(str(k) + "x" + str(v) for k, v in counts.items()) or "none"
+    evt_str = ", ".join("[" + e.severity.upper() + "] " + e.name for e in evts) or "-"
     print(
-        f"{ts.strftime('%H:%M:%S')} UTC | "
-        f"Animals: {n:2d} | Species: {species_str} | "
-        f"Shannon: {shannon:.2f} | Light: {lighting} | "
-        f"Activity: {activity:.2f} | Events: {evt_str}"
+        ts.strftime('%H:%M:%S') + " UTC | " +
+        "Species: " + species_str + " | " +
+        "Shannon: " + str(shannon) + " | " +
+        "Lighting: " + str(lighting) + " | " +
+        "Activity: " + str(activity) + " | Events: " + evt_str
     )
 
 
-def run(stream_url: str, output_dir: str, headless: bool):
+def run(stream_url, output_dir, headless):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'='*60}")
+    print("=" * 60)
     print("  Kenya Wildlife Biodiversity Monitor")
-    print(f"  Stream : {stream_url}")
-    print(f"  Output : {output_path.resolve()}")
-    print(f"{'='*60}\n")
+    print("  Stream : " + stream_url)
+    print("  Output : " + str(output_path.resolve()))
+    print("=" * 60)
 
+    print("[STREAM] Resolving URL...")
     resolved_url = get_stream_url(stream_url)
-    print(f"[STREAM] Resolved URL: {resolved_url[:80]}...\n")
 
-    cap = cv2.VideoCapture(resolved_url)
-    if not cap.isOpened():
-        raise RuntimeError(f"Cannot open stream: {resolved_url}")
+    print("[STREAM] Opening stream...")
+    process, width, height = open_stream(resolved_url)
+    print("[STREAM] Stream open at " + str(width) + "x" + str(height))
 
     detector   = WildlifeDetector(confidence=CONFIDENCE_THRESHOLD)
     events_mgr = EventManager()
     store      = DataStore(output_path)
 
     prev_frame   = None
-    last_process = 0
     frame_count  = 0
-
-    print("[INFO] Starting capture. Press 'q' to quit.\n")
+    last_process = 0
+    print("[INFO] Starting capture. Press Ctrl+C to quit.")
 
     try:
         while True:
-            ret, frame = cap.read()
+            ret, frame = read_frame(process, width, height)
             if not ret:
-                print("[WARN] Frame read failed - reconnecting in 5s...")
+                print("[WARN] Read fail, reconnecting...")
                 time.sleep(5)
-                cap = cv2.VideoCapture(resolved_url)
+                process, width, height = open_stream(resolved_url)
                 continue
 
             frame_count += 1
             now = time.time()
-
             if not headless:
                 display = cv2.resize(frame, (960, 540))
-                cv2.putText(display, f"Frame {frame_count}", (10, 25),
+                cv2.putText(display, "Frame " + str(frame_count), (10, 25),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                cv2.imshow("Kenya Wildlife Monitor - press Q to quit", display)
+                cv2.imshow("Kenya Wildlife Monitor", display)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-
             if now - last_process < FRAME_INTERVAL:
-                prev_frame = frame.copy()
+                prev_frame = frame
                 continue
 
             last_process = now
-            timestamp    = datetime.utcnow()
-
-            detections     = detector.detect(frame)
-            lighting       = estimate_lighting(frame)
-            activity       = estimate_activity_level(frame, prev_frame)
+            timestamp  = datetime.utcnow()
+            lighting   = estimate_lighting(frame)
+            activity   = estimate_activity_level(frame, prev_frame)
+            detections = detector.detect(frame)
 
             species_counts = {}
             for d in detections:
                 species_counts[d.label] = species_counts.get(d.label, 0) + 1
-
-            species_set   = set(species_counts.keys())
+            species_set = set(species_counts.keys())
             shannon_index = _shannon(species_counts)
-
             triggered_events = events_mgr.evaluate(
                 timestamp      = timestamp,
                 detections     = detections,
@@ -131,21 +126,17 @@ def run(stream_url: str, output_dir: str, headless: bool):
     except KeyboardInterrupt:
         print("\n[INFO] Interrupted by user.")
     finally:
-        cap.release()
+        process.terminate()
         if not headless:
             cv2.destroyAllWindows()
         store.close()
-        print(f"\n[INFO] Data saved to: {output_path.resolve()}")
+        print("[INFO] Data saved to: " + str(output_path.resolve()))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Kenya Wildlife Biodiversity Monitor")
-    parser.add_argument("--stream",   default=DEFAULT_STREAM,
-                        help="YouTube URL or direct stream URL")
-    parser.add_argument("--output",   default="data",
-                        help="Directory for CSV output (default: ./data)")
-    parser.add_argument("--headless", action="store_true",
-                        help="Run without GUI window")
+    parser.add_argument("--stream",   default=DEFAULT_STREAM)
+    parser.add_argument("--output",   default="data")
+    parser.add_argument("--headless", action="store_true")
     args = parser.parse_args()
-
     run(args.stream, args.output, args.headless)

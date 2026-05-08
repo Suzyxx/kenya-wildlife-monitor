@@ -3,6 +3,7 @@ import shutil
 import numpy as np
 import cv2
 
+
 def get_stream_url(url: str) -> str:
     if url.startswith("rtsp://") or url.endswith(".m3u8"):
         return url
@@ -18,8 +19,43 @@ def get_stream_url(url: str) -> str:
         if resolved:
             return resolved
     except Exception as e:
-        print(f"[WARN] yt-dlp resolution failed: {e}")
+        print("[WARN] yt-dlp resolution failed: " + str(e))
     return url
+
+
+def open_stream(stream_url: str):
+    probe = subprocess.run([
+        "ffprobe", "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height",
+        "-of", "csv=p=0",
+        stream_url
+    ], capture_output=True, text=True, timeout=30)
+
+    try:
+        w, h = map(int, probe.stdout.strip().split(","))
+    except Exception:
+        w, h = 1280, 720
+        print("[WARN] Could not probe dimensions, using " + str(w) + "x" + str(h))
+    process = subprocess.Popen([
+        "ffmpeg",
+        "-i", stream_url,
+        "-f", "rawvideo",
+        "-pix_fmt", "bgr24",
+        "-vf", "fps=1",
+        "pipe:1"
+    ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8)
+
+    return process, w, h
+
+
+def read_frame(process, width, height):
+    raw = process.stdout.read(width * height * 3)
+    if len(raw) < width * height * 3:
+        return False, None
+    frame = np.frombuffer(raw, np.uint8).reshape((height, width, 3))
+    return True, frame.copy()
+
 
 def estimate_lighting(frame: np.ndarray) -> str:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -31,6 +67,7 @@ def estimate_lighting(frame: np.ndarray) -> str:
     else:
         return "day"
 
+
 def estimate_activity_level(current_frame: np.ndarray, prev_frame, blur_ksize: int = 21) -> float:
     if prev_frame is None:
         return 0.0
@@ -40,4 +77,4 @@ def estimate_activity_level(current_frame: np.ndarray, prev_frame, blur_ksize: i
     g2 = cv2.GaussianBlur(g2, (blur_ksize, blur_ksize), 0)
     diff = cv2.absdiff(g1, g2)
     score = float(np.mean(diff)) / 255.0
-    return round(min(score * 10, 1.0), 4)
+    return round(min(score, 1.0), 4)
