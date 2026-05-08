@@ -10,9 +10,9 @@ from events import EventManager
 from storage import DataStore
 from utils import estimate_lighting, estimate_activity_level, get_stream_url, open_stream, read_frame
 
-DEFAULT_STREAM = "https://www.youtube.com/watch?v=ydYDqZQpim8"
+DEFAULT_STREAM = "https://www.youtube.com/live/LC-DK_22eK4"
 FRAME_INTERVAL = 10
-CONFIDENCE_THRESHOLD = 0.35
+CONFIDENCE_THRESHOLD = 0.20
 
 
 def _shannon(counts):
