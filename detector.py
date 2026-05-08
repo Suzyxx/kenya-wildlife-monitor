@@ -24,7 +24,7 @@ DISPLAY_NAMES = {
     "sheep":    "Sheep/Antelope",
     "cow":      "Cattle/Buffalo",
     "elephant": "Elephant",
-    "bear":     "Honey Badger",
+    "bear":     "Monkey/Baboon",
     "zebra":    "Zebra",
     "giraffe":  "Giraffe",
 }
