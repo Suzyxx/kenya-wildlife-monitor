@@ -10,7 +10,7 @@ from events import EventManager
 from storage import DataStore
 from utils import estimate_lighting, estimate_activity_level, get_stream_url, open_stream, read_frame
 
-DEFAULT_STREAM = "https://www.youtube.com/live/LC-DK_22eK4"
+DEFAULT_STREAM = "https://www.youtube.com/live/xXZqU5vnEug"
 FRAME_INTERVAL = 10
 CONFIDENCE_THRESHOLD = 0.20
 
@@ -61,9 +61,10 @@ def run(stream_url, output_dir, headless):
     events_mgr = EventManager()
     store      = DataStore(output_path)
 
-    prev_frame   = None
-    frame_count  = 0
-    last_process = 0
+    prev_frame    = None
+    frame_count   = 0
+    last_process  = 0
+    last_annotated = None
     print("[INFO] Starting capture. Press Ctrl+C to quit.")
 
     try:
@@ -77,14 +78,16 @@ def run(stream_url, output_dir, headless):
 
             frame_count += 1
             now = time.time()
-            if not headless:
-                display = cv2.resize(frame, (960, 540))
-                cv2.putText(display, "Frame " + str(frame_count), (10, 25),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                cv2.imshow("Kenya Wildlife Monitor", display)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+
             if now - last_process < FRAME_INTERVAL:
+                if not headless:
+                    display_frame = last_annotated if last_annotated is not None else frame
+                    display = cv2.resize(display_frame, (960, 540))
+                    cv2.putText(display, "Frame " + str(frame_count), (10, 25),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                    cv2.imshow("Kenya Wildlife Monitor", display)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
                 prev_frame = frame
                 continue
 
@@ -93,6 +96,15 @@ def run(stream_url, output_dir, headless):
             lighting   = estimate_lighting(frame)
             activity   = estimate_activity_level(frame, prev_frame)
             detections = detector.detect(frame)
+
+            if not headless:
+                last_annotated = detector.annotate_frame(frame, detections)
+                display = cv2.resize(last_annotated, (960, 540))
+                cv2.putText(display, "Frame " + str(frame_count), (10, 25),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                cv2.imshow("Kenya Wildlife Monitor", display)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
             species_counts = {}
             for d in detections:

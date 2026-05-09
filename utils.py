@@ -32,17 +32,13 @@ def open_stream(stream_url: str):
         stream_url
     ], capture_output=True, text=True, timeout=30)
 
-    try:
-        w, h = map(int, probe.stdout.strip().split(","))
-    except Exception:
-        w, h = 1280, 720
-        print("[WARN] Could not probe dimensions, using " + str(w) + "x" + str(h))
+    w, h = 1280, 720
     process = subprocess.Popen([
         "ffmpeg",
         "-i", stream_url,
         "-f", "rawvideo",
         "-pix_fmt", "bgr24",
-        "-vf", "fps=2",
+        "-vf", "scale=1280:720,fps=2",
         "pipe:1"
     ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8)
 

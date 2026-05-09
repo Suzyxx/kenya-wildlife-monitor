@@ -18,15 +18,15 @@ ANIMAL_COCO_IDS = {
 
 DISPLAY_NAMES = {
     "bird":     "Bird",
-    "cat":      "Wildcat/Leopard",
-    "dog":      "African Wild Dog",
-    "horse":    "Horse/Donkey",
-    "sheep":    "Sheep/Antelope",
-    "cow":      "Cattle/Buffalo",
-    "elephant": "Elephant",
+    "cat":      "Wildcat/Leopard/Cheetah",
+    "dog":      "African Wild Dog/Hyena",
+    "horse":    "Gazelle/Impala/Warthog",
+    "sheep":    "Gazelle/Antelope",
+    "cow":      "Cattle/Buffalo/Wildebeest/Warthog",
+    "elephant": "Elephant/Warthog",
     "bear":     "Monkey/Baboon",
     "zebra":    "Zebra",
-    "giraffe":  "Giraffe",
+    "giraffe":  "Giraffe/Gazelle",
 }
 
 CONSERVATION_STATUS = {
