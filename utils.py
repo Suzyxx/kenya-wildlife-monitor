@@ -12,8 +12,15 @@ def get_stream_url(url: str) -> str:
         return url
     try:
         result = subprocess.run(
-            ["yt-dlp", "-f", "best[ext=mp4]/best", "-g", url],
-            capture_output=True, text=True, timeout=30
+            [
+                "yt-dlp",
+                "--remote-components", "ejs:github",
+                "--js-runtimes", "node",
+                "--cookies-from-browser", "safari",
+                "-f", "best[ext=mp4]/best",
+                "-g", url
+            ],
+            capture_output=True, text=True, timeout=60
         )
         resolved = result.stdout.strip().splitlines()[0]
         if resolved:
